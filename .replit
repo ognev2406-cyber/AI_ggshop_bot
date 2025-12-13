@@ -1,2 +1,21 @@
 language = "python3"
 run = "python main.py"
+
+[packages]
+aiogram = ">=3.10.0"
+aiohttp = "*"
+sqlalchemy = "*"
+alembic = "*"
+pydub = "*"
+pydantic = "*"
+python-dotenv = "*"
+flask = "*"
+requests = "*"
+
+[env]
+PORT = "8080"
+PYTHONUNBUFFERED = "true"
+REPLIT = "true"
+
+[nix]
+channel = "stable-24_05"
