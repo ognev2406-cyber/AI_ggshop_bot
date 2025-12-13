@@ -1,132 +1,178 @@
-from flask import Flask, request
+from flask import Flask
 from threading import Thread
 import time
-import logging
 import os
+import requests
+import logging
 
-# Настройка логирования
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
-    """Основная страница для проверки работы"""
-    return """
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Telegram Bot Status</title>
-        <style>
-            body { font-family: Arial, sans-serif; text-align: center; padding: 50px; }
-            .status { color: green; font-size: 24px; }
-        </style>
-    </head>
-    <body>
-        <h1>🤖 Telegram Bot Status</h1>
-        <p class="status">✅ Бот работает исправно</p>
-        <p>Время сервера: {}</p>
-        <p>Для проверки доступности используйте /health</p>
-    </body>
-    </html>
-    """.format(time.strftime('%Y-%m-%d %H:%M:%S'))
-
-@app.route('/health')
-def health_check():
-    """Эндпоинт для проверки здоровья (используется UptimeRobot)"""
-    return {
-        "status": "healthy",
-        "timestamp": time.time(),
-        "service": "telegram-bot",
-        "message": "Bot is running"
-    }, 200
-
-@app.route('/ping')
-def ping():
-    """Простой пинг для внешних сервисов"""
-    return "pong", 200
-
-def run_web_server():
-    """Запуск Flask веб-сервера"""
-    port = int(os.environ.get('PORT', 8080))
-    logger.info(f"Starting web server on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False)
-
 class KeepAlive:
-    """Класс для управления поддержанием активности"""
-    
     def __init__(self):
-        self.webserver_thread = None
-        self.ping_thread = None
+        self.app = app
+        self.thread = None
         self.is_running = False
         
-    def start(self):
-        """Запуск всех механизмов поддержания активности"""
-        self.is_running = True
-        
-        # Запускаем веб-сервер в отдельном потоке
-        self.webserver_thread = Thread(target=run_web_server, daemon=True)
-        self.webserver_thread.start()
-        logger.info("Web server thread started")
-        
-        # Запускаем пинг-сервис (опционально)
-        self.ping_thread = Thread(target=self._ping_service, daemon=True)
-        self.ping_thread.start()
-        logger.info("Ping service started")
-        
-        return self
+        # Настройка маршрутов
+        self.setup_routes()
     
-    def _ping_service(self):
-        """Сервис для периодического пинга самого себя"""
-        import requests
+    def setup_routes(self):
+        @self.app.route('/')
+        def home():
+            return """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>🤖 AI Products Bot</title>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                        color: white;
+                        text-align: center;
+                        padding: 50px;
+                        min-height: 100vh;
+                        display: flex;
+                        flex-direction: column;
+                        justify-content: center;
+                        align-items: center;
+                    }
+                    .container {
+                        background: rgba(255, 255, 255, 0.1);
+                        backdrop-filter: blur(10px);
+                        padding: 40px;
+                        border-radius: 20px;
+                        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+                        max-width: 600px;
+                        width: 90%;
+                    }
+                    h1 {
+                        font-size: 2.5em;
+                        margin-bottom: 20px;
+                    }
+                    .status {
+                        font-size: 1.5em;
+                        color: #4CAF50;
+                        margin: 20px 0;
+                        padding: 10px;
+                        background: rgba(76, 175, 80, 0.2);
+                        border-radius: 10px;
+                    }
+                    .info {
+                        margin: 20px 0;
+                        line-height: 1.6;
+                    }
+                    .time {
+                        font-size: 0.9em;
+                        opacity: 0.8;
+                        margin-top: 30px;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>🤖 AI Products Bot</h1>
+                    <div class="status">✅ Сервер работает</div>
+                    <div class="info">
+                        <p>Telegram бот для создания и продажи AI продуктов</p>
+                        <p>Бот активен и готов принимать команды</p>
+                    </div>
+                    <div class="time">
+                        Серверное время: {time}
+                    </div>
+                </div>
+                <script>
+                    function updateTime() {{
+                        const now = new Date();
+                        const timeStr = now.toLocaleString('ru-RU');
+                        document.querySelector('.time').innerHTML = 
+                            `Серверное время: ${{timeStr}}`;
+                    }}
+                    setInterval(updateTime, 1000);
+                    updateTime();
+                </script>
+            </body>
+            </html>
+            """.format(time=time.strftime('%Y-%m-%d %H:%M:%S'))
         
-        # Получаем URL Replit из переменных окружения
-        repl_url = os.environ.get('REPLIT_URL')
-        if not repl_url:
-            # Пытаемся определить URL автоматически
-            try:
-                repl_owner = os.environ.get('REPL_OWNER', 'unknown')
-                repl_slug = os.environ.get('REPL_SLUG', 'unknown')
-                repl_url = f"https://{repl_slug}.{repl_owner}.repl.co"
-            except:
-                logger.warning("Cannot determine Replit URL, skipping ping service")
-                return
+        @self.app.route('/health')
+        def health():
+            return {
+                "status": "healthy",
+                "service": "telegram-ai-bot",
+                "timestamp": time.time(),
+                "environment": os.environ.get('REPL_ID', 'production')
+            }
         
-        logger.info(f"Ping service targeting: {repl_url}")
+        @self.app.route('/ping')
+        def ping():
+            return "pong"
+    
+    def start_server(self):
+        """Запуск Flask сервера"""
+        port = int(os.environ.get('PORT', 8080))
+        logger.info(f"🚀 Запуск веб-сервера на порту {port}")
+        self.app.run(
+            host='0.0.0.0',
+            port=port,
+            debug=False,
+            use_reloader=False
+        )
+    
+    def start_ping_service(self):
+        """Сервис для самопинга (чтобы Replit не засыпал)"""
+        # Получаем URL Replit
+        repl_owner = os.environ.get('REPL_OWNER', '')
+        repl_slug = os.environ.get('REPL_SLUG', '')
+        
+        if not repl_owner or not repl_slug:
+            logger.warning("⚠️ Не удалось определить URL Replit")
+            return
+        
+        repl_url = f"https://{repl_slug}.{repl_owner}.repl.co"
+        logger.info(f"🔗 URL Replit: {repl_url}")
         
         while self.is_running:
             try:
-                response = requests.get(f"{repl_url}/ping", timeout=10)
+                # Пингуем себя каждые 4.5 минуты
+                response = requests.get(f"{repl_url}/ping", timeout=5)
                 if response.status_code == 200:
-                    logger.debug(f"Self-ping successful: {response.text}")
+                    logger.debug("🔄 Самопинг успешен")
                 else:
-                    logger.warning(f"Self-ping failed with status: {response.status_code}")
-            except requests.exceptions.RequestException as e:
-                logger.error(f"Self-ping error: {e}")
+                    logger.warning(f"⚠️ Самопинг не удался: {response.status_code}")
             except Exception as e:
-                logger.error(f"Unexpected error in ping service: {e}")
+                logger.error(f"❌ Ошибка самопинга: {e}")
             
-            # Ждем 4.5 минуты (меньше чем 5 минут сна Replit)
-            for _ in range(9):
+            # Ждем 270 секунд (4.5 минуты)
+            for i in range(9):
                 if not self.is_running:
                     break
-                time.sleep(30)  # Проверяем каждые 30 секунд
+                time.sleep(30)
+    
+    def start(self):
+        """Запуск всех сервисов keep-alive"""
+        self.is_running = True
+        
+        # Запускаем Flask сервер в отдельном потоке
+        self.thread = Thread(target=self.start_server, daemon=True)
+        self.thread.start()
+        
+        # Запускаем сервис самопинга в отдельном потоке
+        ping_thread = Thread(target=self.start_ping_service, daemon=True)
+        ping_thread.start()
+        
+        logger.info("✅ Keep-alive сервисы запущены")
+        return self
     
     def stop(self):
         """Остановка всех сервисов"""
         self.is_running = False
-        logger.info("KeepAlive services stopping...")
+        logger.info("🛑 Keep-alive сервисы остановлены")
 
 # Создаем глобальный экземпляр
-keep_alive_manager = KeepAlive()
-
-# Функция для обратной совместимости
-def keep_alive():
-    """Старая функция для совместимости"""
-    return keep_alive_manager.start()
-
-# Быстрый запуск при импорте
-if __name__ != "__main__":
-    # Автоматически запускаем при импорте (если не основной файл)
-    keep_alive_manager.start()
+keep_alive = KeepAlive()
