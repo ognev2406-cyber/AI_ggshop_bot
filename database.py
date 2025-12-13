@@ -1,4 +1,6 @@
 # database.py - исправленный класс User (обратите внимание на отступы!)
+from datetime import datetime, timezone
+from sqlalchemy import DateTime
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import declarative_base, Mapped, mapped_column, relationship
 from sqlalchemy import Integer, String, Boolean, DateTime, Text, Float, select, func, ForeignKey
@@ -29,11 +31,11 @@ class User(Base):
     last_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     balance: Mapped[float] = mapped_column(Float, default=0.0)
     is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(pytz.UTC))
-    last_active: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    last_ad_watch: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # ← ОДИНАКОВЫЙ ОТСТУП
-    last_free_payment: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
-    free_trials_used: Mapped[int] = mapped_column(Integer, default=0)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    last_active = Column(DateTime(timezone=True), nullable=True)
+    last_ad_watch = Column(DateTime(timezone=True), nullable=True)
+    last_free_payment = Column(DateTime(timezone=True), nullable=True)
+    free_trials_used = Column(Integer, default=0, nullable=False)
     
     # Отношения
     payments: Mapped[List["Payment"]] = relationship("Payment", back_populates="user")
